@@ -16,6 +16,69 @@ var __theFormPostData = "";
 var __theFormPostCollection = new Array();
 var __callbackTextTypes = /^(text|password|hidden|search|tel|url|email|number|range|color|datetime|date|month|week|time|datetime-local)$/i;
 
+function shenhe(vali) {
+    var str = "";
+    if (vali.length == 6) {
+        str = "待定;";
+    }
+    if (vali.length == 7) {
+        str = "退回;";
+    }
+    switch (vali) {
+    case "0":
+        {
+            str += "未审核";
+            break;
+        }
+    case "1":
+        {
+            str += "本地审核通过"; break;
+        }
+    case "2":
+        {
+            str += "待定"; break;
+        }
+    case "3":
+        {
+            str += "本地退回"; break;
+        }
+    case "10000":
+        {
+            str += "企业"; break;
+        }
+    case "11000":
+        {
+            str += "企业、项目"; break;
+        }
+    case "11100":
+        {
+            str += "企业、项目、产品"; break;
+        }
+    case "11010":
+        {
+            str += "企业、项目、文字版"; break;
+        }
+    case "11011":
+        {
+            str += "企业、项目、文字版、移动"; break;
+        }
+    case "11110":
+        {
+            str += "企业、项目、产品、文字"; break;
+        }
+    case "11001":
+        {
+            str += "企业、项目、移动"; break;
+        }
+    case "11111":
+        {
+            str += "已全部同步"; break;
+        }
+    }
+
+    return str;
+}
+
 function InitCallback() {
     __theFormPostData = "";
     var theForm = document.forms['form1'];
@@ -116,6 +179,10 @@ function makePostData(id, eventType) {
 }
 
 function doPass(id, events) {
+    var count = 3;
+    function errCount() {
+	
+    }
     if (events.length == 0) {
 	alert("全部通过");
 	return 0;
@@ -174,9 +241,18 @@ function doPass(id, events) {
     return 1;
 }
 
-function runPass(id) {
+function runPass(node, id) {
+    function afterSyn(qid) {
+	$.post("../Editor/valistring.ashx?pid=" + qid, null, function (data) {
+            if (data.msg != "0") {
+		var dd = shenhe(data);
+		node.parentNode.previousSibling.innerHTML = dd;
+	    }
+	});
+    }
     var events = new Array("TextPass", "ItemPass", "ProjPass", "FirmInfoPass");
     return doPass(id, events);
+    afterSyn(id);
 }
 	  	 
 function GetTooltip(node, id) {
@@ -317,7 +393,7 @@ function doRefuse(node, id) {
 	} else if (resultObj.error) {
 	    alert("Error:" + resultObj.error.message);
 	} else {
-	    node.parentNode.previousSibling.innerHTML = "通过;";
+	    node.parentNode.previousSibling.innerHTML = "退回;";
 	}
     });
     
@@ -358,7 +434,7 @@ var NodeList = document.body.querySelectorAll("[id^='ASPxPageControl1_grid1_DXDa
 for (var i=0; i<NodeList.length; i++) {
     var Item = NodeList[i];
     var id = Item.childNodes[2].innerHTML;
-    var passLink = String.format("<a onclick='runPass({0})' href='javascript:void(0);'>通过</a>", id);
+    var passLink = String.format("<a onclick='runPass(this, {0})' href='javascript:void(0);'>通过</a>", id);
     var refuseLink = String.format("<a onclick='doRefuse(this, {0})' href='javascript:void(0);'>退回</a>", id);
     Item.childNodes[9].innerHTML += passLink;
     Item.childNodes[9].innerHTML += refuseLink;
