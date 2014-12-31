@@ -27,8 +27,7 @@ function shenhe(vali) {
     switch (vali) {
     case "0":
         {
-            str += "未审核";
-            break;
+	    str += "未审核"; break;
         }
     case "1":
         {
@@ -75,7 +74,6 @@ function shenhe(vali) {
             str += "已全部同步"; break;
         }
     }
-
     return str;
 }
 
@@ -178,74 +176,97 @@ function makePostData(id, eventType) {
     return postData;
 }
 
+function RenewValidation(response) {
+    var separatorIndex = response.indexOf("|");
+    if (separatorIndex != -1) {
+	var validationFieldLength = parseInt(response.substring(0, separatorIndex));
+	if (!isNaN(validationFieldLength)) {
+            var validationField = response.substring(separatorIndex + 1, separatorIndex + validationFieldLength + 1);
+            if (validationField != "") {
+		var validationFieldElement = theForm["__EVENTVALIDATION"];
+		if (!validationFieldElement) {
+                    validationFieldElement = document.createElement("INPUT");
+                    validationFieldElement.type = "hidden";
+                    validationFieldElement.name = "__EVENTVALIDATION";
+                    theForm.appendChild(validationFieldElement);
+		}
+		validationFieldElement.value = validationField;
+            }
+	}
+    }
+}
+
+var passInfoMap = {
+    "FirmInfoPass": "客户信息同步成功",
+    "ProjPass": "项目信息同步成功",
+    "ItemPass": "产品数据同步成功",
+    "TextPass": "项目文字版数据同步成功"
+};
+
+
+var events = ["FirmInfoPass", "ProjPass", "ItemPass", "TextPass"];
 
 function Pass(id, event) {
     var count = 3;
-    function errCount() {
-	
-    }
-    if (count == 0) {
-	alert("全部通过");
-	return 0;
+    function onPass(event,count) {
+	if (!event) {
+	    throw "Unknown error";
+	}
+	var index = event.indexOf(event);
+	if(index == 4) {
+	    throw "Success";
+	}
+	var newevent = events[index+1];
+	var postData = makePostData(id, newevent);
+	return doPass(postData, 3);
     }
 
-    var PostData = makePostData(id, event);
-    $.post("ProjectsList.aspx", PostData, function(response, status){
-	var separatorIndex = response.indexOf("|");
-	if (separatorIndex != -1) {
+    function onFail(event, count) {
+	if (count == 0) {
+	    throw "Data Receiver";
+	} else {
+	    count = count-1;
+	    postData = makePostData(id, event);
+	    return doPass(postData, count);
+	}
+    }
+
+    function doPass(postData, count) {
+	return $.post("ProjectsList.aspx", postData).done(function(response, status, jqxhr){
             var validationFieldLength = parseInt(response.substring(0, separatorIndex));
-            if (!isNaN(validationFieldLength)) {
-                var validationField = response.substring(separatorIndex + 1, separatorIndex + validationFieldLength + 1);
-                if (validationField != "") {
-                    var validationFieldElement = theForm["__EVENTVALIDATION"];
-                    if (!validationFieldElement) {
-                        validationFieldElement = document.createElement("INPUT");
-                        validationFieldElement.type = "hidden";
-                        validationFieldElement.name = "__EVENTVALIDATION";
-                        theForm.appendChild(validationFieldElement);
-                    }
-                    validationFieldElement.value = validationField;
-                }
-            }
-	}
-	var resultObj = eval(response.substring(separatorIndex + validationFieldLength + 1));
-	var result = false;
-	if (resultObj.generalError) {
-	    alert("General Error:" + resultObj.generalError);
-	} else if (resultObj.error) {
-	    switch(event) {
-	    // case "View":
-	    // 	result = true;
-	    // 	break;
-	    case "FirmInfoPass":
-		result = (resultObj.error.message == "客户信息同步成功");
-		break;
-	    case "ProjPass":
-		result = (resultObj.error.message == "项目信息同步成功");
-		break;
-	    case "ItemPass":
-		result = (resultObj.error.message == "产品数据同步成功");
-		break;
-	    case "TextPass":
-		result = (resultObj.error.message == "项目文字版数据同步成功");
-		break;
-	    }
-	    if(!result) {
-		alert("通过信息错误:" + resultObj.error.message);
+	    var separatorIndex = response.indexOf("|");
+	    RenewValidation(response);
+	    var resultObj = eval(response.substring(separatorIndex + validationFieldLength + 1));
+	    if (resultObj.error) {
+		if (resultObj.error.message == "Data Receiveer") {
+		    return $.Deferred().reject([event,count]);
+		} else if (resultObj.error.message == passMessage) {
+		    return [event, count];
+		} else {
+		    throw("通过信息错误:" + resultObj.error.message);
+		    return false;
+		}
+	    } else if (resultObj.generalError) {
+		// return $.Deferred().reject("General Error:" + resultObj.generalError);
+		throw event;
+		return false;
 	    } else {
-		resultID = resultObj['id'];
-		doPass(id, events);
+		return false;
 	    }
-	}
-    });
-    return 1;
+	});
+    }
+    
+    var passer = doPass(makePostData(id, "Firminfopass"), 3);
+    while(true) {
+	passer = passer.then(onPass, onFail);
+    }
 }
 
 
 function doPass(id, events) {
     var count = 3;
     function errCount() {
-	
+
     }
     if (events.length == 0) {
 	alert("全部通过");
@@ -318,7 +339,7 @@ function runPass(node, id) {
     return doPass(id, events);
     afterSyn(id);
 }
-	  	 
+
 function GetTooltip(node, id) {
     var parser = new DOMParser();
     var PostData = makePostData(id, "View");
@@ -432,7 +453,7 @@ function GetItemInfo(node, id) {
 }
 
 function doRefuse(node, id) {
-    var PostData = makePostData(id, "Refuse");    
+    var PostData = makePostData(id, "Refuse");
     $.post("ProjectsList.aspx", PostData, function(response, status){
 	var separatorIndex = response.indexOf("|");
 	if (separatorIndex != -1) {
@@ -460,13 +481,13 @@ function doRefuse(node, id) {
 	    node.parentNode.previousSibling.innerHTML = "退回;";
 	}
     });
-    
+
 }
 
 function evaluateXPath(aNode, aExpr) {
     var xpe = new XPathEvaluator();
     var nsResolver = xpe.createNSResolver(aNode.ownerDocument == null ?
-                                           aNode.documentElement : aNode.ownerDocument.documentElement);
+                                          aNode.documentElement : aNode.ownerDocument.documentElement);
     var result = xpe.evaluate(aExpr, aNode, nsResolver, 0, null);
     var found = [];
     var res;
@@ -483,9 +504,9 @@ function evaluateXPath(aNode, aExpr) {
 if (!String.format) {
     String.format = function(format) {
 	var args = Array.prototype.slice.call(arguments, 1);
-	return format.replace(/{(\d+)}/g, function(match, number) { 
+	return format.replace(/{(\d+)}/g, function(match, number) {
 	    return typeof args[number] != 'undefined'
-		? args[number] 
+		? args[number]
 		: match
 	    ;
 	});
@@ -504,14 +525,14 @@ for (var i=0; i<NodeList.length; i++) {
     Item.childNodes[9].innerHTML += passLink;
     Item.childNodes[9].innerHTML += refuseLink;
     Item.childNodes[1].addEventListener('mouseover', function(){CheckPopUp(this)});
-	//setAttribute("onmouseover", "CheckPopUp(this)");
+    //setAttribute("onmouseover", "CheckPopUp(this)");
 }
 
 // var $jq = jQuery; // this is safe in WP installations with noConflict mode (which is default)
 
 // nhpup = {
 
-//     pup: null,      // This is the popup box, represented by a div    
+//     pup: null,      // This is the popup box, represented by a div
 //     identifier: "pup",  // Name of ID and class of the popup box
 //     minMargin: 15,  // Set how much minimal space there should be (in pixels)
 //                     // between the popup and everything else (borders, mouse)
@@ -525,7 +546,7 @@ for (var i=0; i<NodeList.length; i++) {
 //     */
 //     popup: function(p_msg, p_config)
 //     {
-//         // do track mouse moves and update position 
+//         // do track mouse moves and update position
 //         this.move = true;
 //         // restore defaults
 //         this.pup.removeClass()
@@ -545,12 +566,12 @@ for (var i=0; i<NodeList.length; i++) {
 //         // Write content and display
 //         this.pup.html(p_msg).show();
 
-//         // Make sure popup goes away on mouse out and we stop the constant 
+//         // Make sure popup goes away on mouse out and we stop the constant
 //         //  positioning on mouse moves.
-//         // The event obj needs to be gotten from the virtual 
-//         //  caller, since we use onmouseover='nhpup.popup(p_msg)' 
+//         // The event obj needs to be gotten from the virtual
+//         //  caller, since we use onmouseover='nhpup.popup(p_msg)'
 //         var t = this.getTarget(arguments.callee.caller.arguments[0]);
-//         $jq(t).unbind('mouseout').bind('mouseout', 
+//         $jq(t).unbind('mouseout').bind('mouseout',
 //             function(e){
 //                 nhpup.pup.hide();
 //                 nhpup.move = false;
@@ -611,7 +632,7 @@ for (var i=0; i<NodeList.length; i++) {
 //         return targ;
 //     },
 
-//     onTouchDevice: function() 
+//     onTouchDevice: function()
 //     {
 //         var deviceAgent = navigator.userAgent.toLowerCase();
 //         return deviceAgent.match(/(iphone|ipod|ipad|android|blackberry|iemobile|opera m(ob|in)i|vodafone)/) !== null;
@@ -621,12 +642,12 @@ for (var i=0; i<NodeList.length; i++) {
 
 // /* Prepare popup and define the mouseover callback */
 // jQuery(document).ready(function(){
-//     // create default popup on the page    
+//     // create default popup on the page
 //     $jq('body').append('<div id="' + nhpup.identifier + '" class="' + nhpup.identifier + '" style="position:abolute; display:none; z-index:200;"></div>');
 //     nhpup.pup = $jq('#' + nhpup.identifier);
 
 //     // set dynamic coords when the mouse moves
-//     $jq(document).mousemove(function(e){ 
+//     $jq(document).mousemove(function(e){
 //         if (!nhpup.onTouchDevice()) { // turn off constant repositioning for touch devices (no use for this anyway)
 //             if (nhpup.move){
 //                 nhpup.setElementPos(e.pageX, e.pageY);
