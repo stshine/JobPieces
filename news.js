@@ -8,9 +8,7 @@
 // @grant       unsafeWindow
 // @require     http://tongji.1958.cc:8106/JavaScript/jquery.js
 // ==/UserScript==
-
-var $ = $ || unsafeWindow.$;
-
+(function() {
 var resultID = 0 ;
 var __theFormPostData = "";
 var __theFormPostCollection = new Array();
@@ -27,7 +25,7 @@ function shenhe(vali) {
     switch (vali) {
     case "0":
         {
-	    str += "未审核"; break;
+            str += "未审核"; break;
         }
     case "1":
         {
@@ -74,6 +72,7 @@ function shenhe(vali) {
             str += "已全部同步"; break;
         }
     }
+
     return str;
 }
 
@@ -176,7 +175,8 @@ function makePostData(id, eventType) {
     return postData;
 }
 
-function RenewValidation(response) {
+    
+function ReValid(response) {
     var separatorIndex = response.indexOf("|");
     if (separatorIndex != -1) {
 	var validationFieldLength = parseInt(response.substring(0, separatorIndex));
@@ -206,140 +206,64 @@ var passInfoMap = {
 
 var events = ["FirmInfoPass", "ProjPass", "ItemPass", "TextPass"];
 
-function Pass(id, event) {
-    var count = 3;
-    function onPass(event,count) {
-	if (!event) {
-	    throw "Unknown error";
-	}
-	var index = event.indexOf(event);
-	if(index == 4) {
-	    throw "Success";
-	}
-	var newevent = events[index+1];
-	var postData = makePostData(id, newevent);
-	return doPass(postData, 3);
-    }
-
-    function onFail(event, count) {
-	if (count == 0) {
-	    throw "Data Receiver";
-	} else {
-	    count = count-1;
-	    postData = makePostData(id, event);
-	    return doPass(postData, count);
-	}
-    }
-
-    function doPass(postData, count) {
-	return $.post("ProjectsList.aspx", postData).done(function(response, status, jqxhr){
-            var validationFieldLength = parseInt(response.substring(0, separatorIndex));
-	    var separatorIndex = response.indexOf("|");
-	    RenewValidation(response);
-	    var resultObj = eval(response.substring(separatorIndex + validationFieldLength + 1));
-	    if (resultObj.error) {
-		if (resultObj.error.message == "Data Receiveer") {
-		    return $.Deferred().reject([event,count]);
-		} else if (resultObj.error.message == passMessage) {
-		    return [event, count];
-		} else {
-		    throw("通过信息错误:" + resultObj.error.message);
-		    return false;
-		}
-	    } else if (resultObj.generalError) {
-		// return $.Deferred().reject("General Error:" + resultObj.generalError);
-		throw event;
-		return false;
-	    } else {
-		return false;
-	    }
-	});
-    }
-    
-    var passer = doPass(makePostData(id, "Firminfopass"), 3);
-    while(true) {
-	passer = passer.then(onPass, onFail);
-    }
-}
-
-
-function doPass(id, events) {
-    var count = 3;
-    function errCount() {
-
-    }
-    if (events.length == 0) {
-	alert("全部通过");
-	return 0;
-    }
-    var event = events.pop();
-
-    var PostData = makePostData(id, event);
-    $.post("ProjectsList.aspx", PostData, function(response, status){
-	var separatorIndex = response.indexOf("|");
-	if (separatorIndex != -1) {
-            var validationFieldLength = parseInt(response.substring(0, separatorIndex));
-            if (!isNaN(validationFieldLength)) {
-                var validationField = response.substring(separatorIndex + 1, separatorIndex + validationFieldLength + 1);
-                if (validationField != "") {
-                    var validationFieldElement = theForm["__EVENTVALIDATION"];
-                    if (!validationFieldElement) {
-                        validationFieldElement = document.createElement("INPUT");
-                        validationFieldElement.type = "hidden";
-                        validationFieldElement.name = "__EVENTVALIDATION";
-                        theForm.appendChild(validationFieldElement);
-                    }
-                    validationFieldElement.value = validationField;
-                }
-            }
-	}
-	var resultObj = eval(response.substring(separatorIndex + validationFieldLength + 1));
-	var result = false;
-	if (resultObj.generalError) {
-	    alert("General Error:" + resultObj.generalError);
-	} else if (resultObj.error) {
-	    switch(event) {
-	    case "View":
-		result = true;
-		break;
-	    case "FirmInfoPass":
-		result = (resultObj.error.message == "客户信息同步成功");
-		break;
-	    case "ProjPass":
-		result = (resultObj.error.message == "项目信息同步成功");
-		break;
-	    case "ItemPass":
-		result = (resultObj.error.message == "产品数据同步成功");
-		break;
-	    case "TextPass":
-		result = (resultObj.error.message == "项目文字版数据同步成功");
-		break;
-	    }
-	    if(!result) {
-		alert("通过信息错误:" + resultObj.error.message);
-	    } else {
-		resultID = resultObj['id'];
-		doPass(id, events);
+function Pass(id) {
+    co(function* () {
+	for (var i=0; i<events.length; ++i) {
+	    var event = events[i];
+	    var result = yield co(doPass(event));
+	    if (!result) {
+		yield Promise.reject(event);
 	    }
 	}
     });
-    return 1;
-}
 
-function runPass(node, id) {
-    function afterSyn(qid) {
-	$.post("../Editor/valistring.ashx?pid=" + qid, null, function (data) {
-            if (data.msg != "0") {
-		var dd = shenhe(data);
-		node.parentNode.previousSibling.innerHTML = dd;
+    $.post("../Editor/valistring.ashx?pid=" + id, null, function (data) {
+        if (data.msg != "0") {
+	    var dd = shenhe(data);
+	    this.childNodes[8].innerHTML = dd;
+	}
+    });
+    
+    function* doPass(event) {
+	var count = 3;
+	while (count>0) {
+	    var result = yield Passer(event, id);
+	    if(result) {
+		return true;
+	    } else {
+		count--;
 	    }
+	}
+	return false;
+    }
+    
+    function Passer(event, id) {
+	var postData = makePostData(id, event);
+	return new Promise(function(resolve, reject) {
+	    $.post("ProjectsList.aspx", postData).done(function(response, status, jqxhr){
+		var validationFieldLength = parseInt(response.substring(0, separatorIndex));
+		var separatorIndex = response.indexOf("|");
+		ReValid(response);
+		var resultObj = eval(response.substring(separatorIndex + validationFieldLength + 1));
+		if (resultObj.error) {
+		    if (resultObj.error.message == "Data Receiveer") {
+			resolve(false);
+		    } else if (resultObj.error.message == passInfoMap[event]) {
+			resolve(true);
+		    } else {
+			reject("通过信息错误:" + resultObj.error.message);
+		    }
+		} else if (resultObj.generalError) {
+		    // return $.Deferred().reject("General Error:" + resultObj.generalError);
+		    reject("General Error" + resultObj.generalError);
+		} else {
+		    reject(false);
+		}
+	    });	
 	});
     }
-    var events = new Array("TextPass", "ItemPass", "ProjPass", "FirmInfoPass");
-    return doPass(id, events);
-    afterSyn(id);
 }
-
+	  	 
 function GetTooltip(node, id) {
     var parser = new DOMParser();
     var PostData = makePostData(id, "View");
@@ -406,8 +330,8 @@ function GetTooltip(node, id) {
     });
 }
 
-function CheckPopUp(node) {
-    node = node.parentNode;
+function CheckPopUp() {
+    var node = this;
     var id = node.childNodes[2].innerHTML;
     if(node.childNodes[3].hasAttribute("title") &&node.childNodes[4].hasAttribute("title") &&
        node.childNodes[5].hasAttribute("onmouseover")) {
@@ -452,8 +376,9 @@ function GetItemInfo(node, id) {
     });
 }
 
-function doRefuse(node, id) {
-    var PostData = makePostData(id, "Refuse");
+function doRefuse(id) {
+    var node = this;
+    var PostData = makePostData(id, "Refuse");    
     $.post("ProjectsList.aspx", PostData, function(response, status){
 	var separatorIndex = response.indexOf("|");
 	if (separatorIndex != -1) {
@@ -478,16 +403,16 @@ function doRefuse(node, id) {
 	} else if (resultObj.error) {
 	    alert("Error:" + resultObj.error.message);
 	} else {
-	    node.parentNode.previousSibling.innerHTML = "退回;";
+	    node.childNodes[8].innerHTML = "退回;";
 	}
     });
-
+    
 }
 
 function evaluateXPath(aNode, aExpr) {
     var xpe = new XPathEvaluator();
     var nsResolver = xpe.createNSResolver(aNode.ownerDocument == null ?
-                                          aNode.documentElement : aNode.ownerDocument.documentElement);
+                                           aNode.documentElement : aNode.ownerDocument.documentElement);
     var result = xpe.evaluate(aExpr, aNode, nsResolver, 0, null);
     var found = [];
     var res;
@@ -504,9 +429,9 @@ function evaluateXPath(aNode, aExpr) {
 if (!String.format) {
     String.format = function(format) {
 	var args = Array.prototype.slice.call(arguments, 1);
-	return format.replace(/{(\d+)}/g, function(match, number) {
+	return format.replace(/{(\d+)}/g, function(match, number) { 
 	    return typeof args[number] != 'undefined'
-		? args[number]
+		? args[number] 
 		: match
 	    ;
 	});
@@ -514,25 +439,44 @@ if (!String.format) {
 }
 
 //var NodeList = $("[id^='ASPxPageControl1_grid1_DXDataRow']");
+function init() {
+    var NodeList = document.body.querySelectorAll("[id^='ASPxPageControl1_grid1_DXDataRow']");
 
-var NodeList = document.body.querySelectorAll("[id^='ASPxPageControl1_grid1_DXDataRow']");
-
-for (var i=0; i<NodeList.length; i++) {
-    var Item = NodeList[i];
-    var id = Item.childNodes[2].innerHTML;
-    var passLink = String.format("<a onclick='runPass(this, {0})' href='javascript:void(0);'>通过</a>", id);
-    var refuseLink = String.format("<a onclick='doRefuse(this, {0})' href='javascript:void(0);'>退回</a>", id);
-    Item.childNodes[9].innerHTML += passLink;
-    Item.childNodes[9].innerHTML += refuseLink;
-    Item.childNodes[1].addEventListener('mouseover', function(){CheckPopUp(this)});
-    //setAttribute("onmouseover", "CheckPopUp(this)");
+    for (var i=0; i<NodeList.length; i++) {
+	var Item = NodeList[i];
+	var id = Item.childNodes[2].innerHTML;
+	var passLink = document.createElement('a')
+	passLink.innerHTML = "通过";
+	passLink.href = 'javascript:void(0);';
+	passLink.addEventListener('click', Pass.bind(Item, id));
+	Item.childNodes[9].appendChild(passLink);
+	var refuseLink = document.createElement('a')
+	refuseLink.innerHTML = "退回";
+	refuseLink.href = 'javascript:void(0);';
+	refuseLink.addEventListener('click', doRefuse.bind(Item, id));
+	Item.childNodes[9].appendChild(refuseLink);
+	
+	// var passLink = String.format("<a onclick='runPass(this, {0})' href='javascript:void(0);'>通过</a>", id);
+	// var refuseLink = String.format("<a onclick='doRefuse(this, {0})' href='javascript:void(0);'>退回</a>", id);
+	// Item.childNodes[9].innerHTML += passLink;
+	// Item.childNodes[9].innerHTML += refuseLink;
+	Item.childNodes[1].addEventListener('mouseover', CheckPopUp.bind(Item));
+	//setAttribute("onmouseover", "CheckPopUp(this)");
+    }
 }
 
+function onPass(id) {
+    runPass;
+}
+
+    init();
+})();
+    
 // var $jq = jQuery; // this is safe in WP installations with noConflict mode (which is default)
 
 // nhpup = {
 
-//     pup: null,      // This is the popup box, represented by a div
+//     pup: null,      // This is the popup box, represented by a div    
 //     identifier: "pup",  // Name of ID and class of the popup box
 //     minMargin: 15,  // Set how much minimal space there should be (in pixels)
 //                     // between the popup and everything else (borders, mouse)
@@ -546,7 +490,7 @@ for (var i=0; i<NodeList.length; i++) {
 //     */
 //     popup: function(p_msg, p_config)
 //     {
-//         // do track mouse moves and update position
+//         // do track mouse moves and update position 
 //         this.move = true;
 //         // restore defaults
 //         this.pup.removeClass()
@@ -566,12 +510,12 @@ for (var i=0; i<NodeList.length; i++) {
 //         // Write content and display
 //         this.pup.html(p_msg).show();
 
-//         // Make sure popup goes away on mouse out and we stop the constant
+//         // Make sure popup goes away on mouse out and we stop the constant 
 //         //  positioning on mouse moves.
-//         // The event obj needs to be gotten from the virtual
-//         //  caller, since we use onmouseover='nhpup.popup(p_msg)'
+//         // The event obj needs to be gotten from the virtual 
+//         //  caller, since we use onmouseover='nhpup.popup(p_msg)' 
 //         var t = this.getTarget(arguments.callee.caller.arguments[0]);
-//         $jq(t).unbind('mouseout').bind('mouseout',
+//         $jq(t).unbind('mouseout').bind('mouseout', 
 //             function(e){
 //                 nhpup.pup.hide();
 //                 nhpup.move = false;
@@ -632,7 +576,7 @@ for (var i=0; i<NodeList.length; i++) {
 //         return targ;
 //     },
 
-//     onTouchDevice: function()
+//     onTouchDevice: function() 
 //     {
 //         var deviceAgent = navigator.userAgent.toLowerCase();
 //         return deviceAgent.match(/(iphone|ipod|ipad|android|blackberry|iemobile|opera m(ob|in)i|vodafone)/) !== null;
@@ -642,12 +586,12 @@ for (var i=0; i<NodeList.length; i++) {
 
 // /* Prepare popup and define the mouseover callback */
 // jQuery(document).ready(function(){
-//     // create default popup on the page
+//     // create default popup on the page    
 //     $jq('body').append('<div id="' + nhpup.identifier + '" class="' + nhpup.identifier + '" style="position:abolute; display:none; z-index:200;"></div>');
 //     nhpup.pup = $jq('#' + nhpup.identifier);
 
 //     // set dynamic coords when the mouse moves
-//     $jq(document).mousemove(function(e){
+//     $jq(document).mousemove(function(e){ 
 //         if (!nhpup.onTouchDevice()) { // turn off constant repositioning for touch devices (no use for this anyway)
 //             if (nhpup.move){
 //                 nhpup.setElementPos(e.pageX, e.pageY);
@@ -655,3 +599,235 @@ for (var i=0; i<NodeList.length; i++) {
 //         }
 //     });
 // });
+
+
+
+/**
+ * slice() reference.
+ */
+
+var slice = Array.prototype.slice;
+
+/**
+ * Expose `co`.
+ */
+
+/**
+ * Wrap the given generator `fn` into a
+ * function that returns a promise.
+ * This is a separate function so that
+ * every `co()` call doesn't create a new,
+ * unnecessary closure.
+ *
+ * @param {GeneratorFunction} fn
+ * @return {Function}
+ * @api public
+ */
+
+co.wrap = function (fn) {
+  return function () {
+    return co.call(this, fn.apply(this, arguments));
+  };
+};
+
+/**
+ * Execute the generator function or a generator
+ * and return a promise.
+ *
+ * @param {Function} fn
+ * @return {Function}
+ * @api public
+ */
+
+function co(gen) {
+  var ctx = this;
+  if (typeof gen === 'function') gen = gen.call(this);
+  // we wrap everything in a promise to avoid promise chaining,
+  // which leads to memory leak errors.
+  // see https://github.com/tj/co/issues/180
+  return new Promise(function(resolve, reject) {
+    onFulfilled();
+
+    /**
+     * @param {Mixed} res
+     * @return {Promise}
+     * @api private
+     */
+
+    function onFulfilled(res) {
+      var ret;
+      try {
+        ret = gen.next(res);
+      } catch (e) {
+        return reject(e);
+      }
+      next(ret);
+    }
+
+    /**
+     * @param {Error} err
+     * @return {Promise}
+     * @api private
+     */
+
+    function onRejected(err) {
+      var ret;
+      try {
+        ret = gen.throw(err);
+      } catch (e) {
+        return reject(e);
+      }
+      next(ret);
+    }
+
+    /**
+     * Get the next value in the generator,
+     * return a promise.
+     *
+     * @param {Object} ret
+     * @return {Promise}
+     * @api private
+     */
+
+    function next(ret) {
+      if (ret.done) return resolve(ret.value);
+      var value = toPromise.call(ctx, ret.value);
+      if (value && isPromise(value)) return value.then(onFulfilled, onRejected);
+      return onRejected(new TypeError('You may only yield a function, promise, generator, array, or object, '
+        + 'but the following object was passed: "' + String(ret.value) + '"'));
+    }
+  });
+}
+
+/**
+ * Convert a `yield`ed value into a promise.
+ *
+ * @param {Mixed} obj
+ * @return {Promise}
+ * @api private
+ */
+
+function toPromise(obj) {
+  if (!obj) return obj;
+  if (isPromise(obj)) return obj;
+  if (isGeneratorFunction(obj) || isGenerator(obj)) return co.call(this, obj);
+  if ('function' == typeof obj) return thunkToPromise.call(this, obj);
+  if (Array.isArray(obj)) return arrayToPromise.call(this, obj);
+  if (isObject(obj)) return objectToPromise.call(this, obj);
+  return obj;
+}
+
+/**
+ * Convert a thunk to a promise.
+ *
+ * @param {Function}
+ * @return {Promise}
+ * @api private
+ */
+
+function thunkToPromise(fn) {
+  var ctx = this;
+  return new Promise(function (resolve, reject) {
+    fn.call(ctx, function (err, res) {
+      if (err) return reject(err);
+      if (arguments.length > 2) res = slice.call(arguments, 1);
+      resolve(res);
+    });
+  });
+}
+
+/**
+ * Convert an array of "yieldables" to a promise.
+ * Uses `Promise.all()` internally.
+ *
+ * @param {Array} obj
+ * @return {Promise}
+ * @api private
+ */
+
+function arrayToPromise(obj) {
+  return Promise.all(obj.map(toPromise, this));
+}
+
+/**
+ * Convert an object of "yieldables" to a promise.
+ * Uses `Promise.all()` internally.
+ *
+ * @param {Object} obj
+ * @return {Promise}
+ * @api private
+ */
+
+function objectToPromise(obj){
+  var results = new obj.constructor();
+  var keys = Object.keys(obj);
+  var promises = [];
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    var promise = toPromise.call(this, obj[key]);
+    if (promise && isPromise(promise)) defer(promise, key);
+    else results[key] = obj[key];
+  }
+  return Promise.all(promises).then(function () {
+    return results;
+  });
+
+  function defer(promise, key) {
+    // predefine the key in the result
+    results[key] = undefined;
+    promises.push(promise.then(function (res) {
+      results[key] = res;
+    }));
+  }
+}
+
+/**
+ * Check if `obj` is a promise.
+ *
+ * @param {Object} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isPromise(obj) {
+  return 'function' == typeof obj.then;
+}
+
+/**
+ * Check if `obj` is a generator.
+ *
+ * @param {Mixed} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isGenerator(obj) {
+  return 'function' == typeof obj.next && 'function' == typeof obj.throw;
+}
+
+/**
+ * Check if `obj` is a generator function.
+ *
+ * @param {Mixed} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isGeneratorFunction(obj) {
+  var constructor = obj.constructor;
+  return constructor && 'GeneratorFunction' == constructor.name;
+}
+
+/**
+ * Check for plain object.
+ *
+ * @param {Mixed} val
+ * @return {Boolean}
+ * @api private
+ */
+
+function isObject(val) {
+  return Object == val.constructor;
+}
+
+
