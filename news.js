@@ -207,7 +207,10 @@ var passInfoMap = {
 var events = ["FirmInfoPass", "ProjPass", "ItemPass", "TextPass"];
 
 function Pass(id) {
-    co(function* () {
+    var node = this;
+    node.childNodes[1].innerHTML = "🔃";
+    node.childNodes[1].style.color = "gray";
+    return co(function* () {
 	for (var i=0; i<events.length; ++i) {
 	    var event = events[i];
 	    var result = yield co(doPass(event));
@@ -215,15 +218,35 @@ function Pass(id) {
 		yield Promise.reject(event);
 	    }
 	}
+	return yield new Promise(function(resolve, reject){
+	    $.post("../Editor/valistring.ashx?pid=" + id, null, function (data) {
+		if (data.msg != "0") {
+		    var dd = shenhe(data);
+		    node.childNodes[8].innerHTML = dd;
+		    var status = node.childNodes[8].innerHTML;
+		    if(status.indexOf("未审核") > -1) {
+			node.childNodes[1].innerHTML = "🔘";
+			node.childNodes[1].style.color = "green";
+		    } else if (status.indexOf("退回") != -1) {
+			node.childNodes[1].innerHTML = "✔";
+			node.childNodes[1].style.color = "red";
+		    } else if (status.indexOf("企业、项目、产品、文字") != -1) {
+			node.childNodes[1].innerHTML = "✔";
+			node.childNodes[1].style.color = "green";
+		    }
+		}
+		if (dd == "企业、项目、产品、文字") {
+		    resolve(true);
+		} else {
+		    resolve(false);
+		}
+	    });
+	});
+	
     });
 
-    $.post("../Editor/valistring.ashx?pid=" + id, null, function (data) {
-        if (data.msg != "0") {
-	    var dd = shenhe(data);
-	    this.childNodes[8].innerHTML = dd;
-	}
-    });
-    
+
+
     function* doPass(event) {
 	var count = 3;
 	while (count>0) {
@@ -246,7 +269,7 @@ function Pass(id) {
 		ReValid(response);
 		var resultObj = eval(response.substring(separatorIndex + validationFieldLength + 1));
 		if (resultObj.error) {
-		    if (resultObj.error.message == "Data Receiveer") {
+		    if (resultObj.error.message == ":There is already an open DataReader associated with this Connection which must be closed first.") {
 			resolve(false);
 		    } else if (resultObj.error.message == passInfoMap[event]) {
 			resolve(true);
@@ -263,7 +286,22 @@ function Pass(id) {
 	});
     }
 }
-	  	 
+
+
+function PassAll() {
+    var NodeList = document.body.querySelectorAll("[id^='ASPxPageControl1_grid1_DXDataRow']");
+    co(function*(){
+	for (var i=0; i<NodeList.length; i++) {
+	    var Item = NodeList[i];
+	    var id = Item.childNodes[2].innerHTML;
+	    if (Item.childNodes[8].innerHTML.indexOf("未审核") != -1) {
+		yield Pass.bind(Item, id)();
+	    }
+	}
+    });
+}
+    
+    
 function GetTooltip(node, id) {
     var parser = new DOMParser();
     var PostData = makePostData(id, "View");
@@ -404,6 +442,8 @@ function doRefuse(id) {
 	    alert("Error:" + resultObj.error.message);
 	} else {
 	    node.childNodes[8].innerHTML = "退回;";
+	    node.childNodes[1].innerHTML = "✔";
+	    node.childNodes[1].style.color = "red";	    
 	}
     });
     
@@ -445,16 +485,27 @@ function init() {
     for (var i=0; i<NodeList.length; i++) {
 	var Item = NodeList[i];
 	var id = Item.childNodes[2].innerHTML;
-	var passLink = document.createElement('a')
+	var passLink = document.createElement('a');
 	passLink.innerHTML = "通过";
 	passLink.href = 'javascript:void(0);';
 	passLink.addEventListener('click', Pass.bind(Item, id));
 	Item.childNodes[9].appendChild(passLink);
-	var refuseLink = document.createElement('a')
+	var refuseLink = document.createElement('a');
 	refuseLink.innerHTML = "退回";
 	refuseLink.href = 'javascript:void(0);';
 	refuseLink.addEventListener('click', doRefuse.bind(Item, id));
 	Item.childNodes[9].appendChild(refuseLink);
+	var status = Item.childNodes[8].innerHTML;
+	if(status.indexOf("未审核") > -1) {
+	    Item.childNodes[1].innerHTML = "🔘";
+	    Item.childNodes[1].style.color = "green";
+	} else if (status.indexOf("退回") != -1) {
+	    Item.childNodes[1].innerHTML = "✔";
+	    Item.childNodes[1].style.color = "red";
+	} else if (status.indexOf("企业、项目、产品、文字") != -1) {
+	    Item.childNodes[1].innerHTML = "✔";
+	    Item.childNodes[1].style.color = "green";
+	}
 	
 	// var passLink = String.format("<a onclick='runPass(this, {0})' href='javascript:void(0);'>通过</a>", id);
 	// var refuseLink = String.format("<a onclick='doRefuse(this, {0})' href='javascript:void(0);'>退回</a>", id);
@@ -463,10 +514,17 @@ function init() {
 	Item.childNodes[1].addEventListener('mouseover', CheckPopUp.bind(Item));
 	//setAttribute("onmouseover", "CheckPopUp(this)");
     }
-}
 
-function onPass(id) {
-    runPass;
+    var thePanel = document.createElement('button');
+    thePanel.addEventListener('click', PassAll);
+    document.body.appendChild(thePanel);
+    thePanel.type = "button";
+    thePanel.innerHTML = "全部通过";
+    thePanel.style.position = "absolute";
+    thePanel.style.top = "10px";
+    thePanel.style.left = "50%";
+    //thePanel.style.width = "3em";
+    //thePanel.style.height = "1em";
 }
 
     init();
