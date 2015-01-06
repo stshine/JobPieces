@@ -3,7 +3,7 @@
 // @name        TongjiEnhance
 // @namespace   tongji.1958.cc
 // @description Enhance Editing Experiance
-// @include     http://tongji.1958.cc:8106/Projects/ProjectsList.aspx
+// @include     http://tongji.1958.cc:8106/Projects/ProjectsList.aspx*
 // @version     0.1
 // @grant       unsafeWindow
 // @require     http://tongji.1958.cc:8106/JavaScript/jquery.js
@@ -13,6 +13,10 @@ var resultID = 0 ;
 var __theFormPostData = "";
 var __theFormPostCollection = new Array();
 var __callbackTextTypes = /^(text|password|hidden|search|tel|url|email|number|range|color|datetime|date|month|week|time|datetime-local)$/i;
+//var theForm = document.forms['form1'];
+//if (!theForm) {
+    var theForm = document.body.firstElementChild;
+//}
 
 function shenhe(vali) {
     var str = "";
@@ -78,10 +82,7 @@ function shenhe(vali) {
 
 function InitCallback() {
     __theFormPostData = "";
-    var theForm = document.forms['form1'];
-    if (!theForm) {
-	theForm = document.form1;
-    }
+
     var formElements = theForm.elements,
         count = formElements.length,
         element;
@@ -162,10 +163,7 @@ function makePostData(id, eventType) {
         eventArgument = baseArg;
         break;
     }
-    var theForm = document.forms['form1'];
-    if (!theForm) {
-	theForm = document.form1;
-    }
+
     var postData = InitCallback() +
 	    "__CALLBACKID=" + WebForm_EncodeCallback(eventTarget) +
 	    "&__CALLBACKPARAM=" + WebForm_EncodeCallback(eventArgument);
@@ -204,7 +202,7 @@ var passInfoMap = {
 };
 
 
-var events = ["FirmInfoPass", "ProjPass", "ItemPass", "TextPass"];
+var events = ["FirmInfoPass", "ProjPass", "TextPass", "ItemPass"];
 
 function Pass(id) {
     var node = this;
@@ -215,10 +213,11 @@ function Pass(id) {
 	    var event = events[i];
 	    var result = yield co(doPass(event));
 	    if (!result) {
-		yield Promise.reject(event);
+		return false;
+		//yield Promise.reject(event);
 	    }
 	}
-	return yield new Promise(function(resolve, reject){
+	yield new Promise(function(resolve, reject){
 	    $.post("../Editor/valistring.ashx?pid=" + id, null, function (data) {
 		if (data.msg != "0") {
 		    var dd = shenhe(data);
@@ -248,39 +247,61 @@ function Pass(id) {
 
 
     function* doPass(event) {
-	var count = 3;
-	while (count>0) {
-	    var result = yield Passer(event, id);
-	    if(result) {
-		return true;
-	    } else {
-		count--;
+	var count = 4;
+	while(count>0) {
+	    try {
+		var result = yield Passer(event, id);
+		return result;
+	    } catch (err) {
+		if (err == "Error:There is already an open DataReader associated with this Connection which must be closed first." && count > 1) {
+		    console.log("Call sleeper");
+		    result = yield Sleeper();
+		    count--;		    
+		    //resultID = resultObj.id;
+		} else {
+		    console.log(err);
+		    node.childNodes[1].innerHTML = "×";
+		    node.childNodes[1].style.color = "red";
+		    node.childNodes[1].setAttribute("title", err);
+		    node.childNodes[8].innerHTML = err;
+		//yield Promise.resolve(false);
+		    return false;
+		}
 	    }
 	}
-	return false;
     }
-    
+    function Sleeper() {
+	return new Promise(function(resolve, reject) {
+	    setTimeout(function(){
+		resolve(true);
+	    }, 500);
+	});
+    }
     function Passer(event, id) {
 	var postData = makePostData(id, event);
 	return new Promise(function(resolve, reject) {
 	    $.post("ProjectsList.aspx", postData).done(function(response, status, jqxhr){
-		var validationFieldLength = parseInt(response.substring(0, separatorIndex));
-		var separatorIndex = response.indexOf("|");
-		ReValid(response);
-		var resultObj = eval(response.substring(separatorIndex + validationFieldLength + 1));
-		if (resultObj.error) {
-		    if (resultObj.error.message == ":There is already an open DataReader associated with this Connection which must be closed first.") {
-			resolve(false);
-		    } else if (resultObj.error.message == passInfoMap[event]) {
-			resolve(true);
-		    } else {
-			reject("通过信息错误:" + resultObj.error.message);
-		    }
-		} else if (resultObj.generalError) {
-		    // return $.Deferred().reject("General Error:" + resultObj.generalError);
-		    reject("General Error" + resultObj.generalError);
+		if (jqxhr.getResponseHeader("Connection") == "Close") {
+		    // console.log("Close Connection");
+		    reject("Error:There is already an open DataReader associated with this Connection which must be closed first.");
 		} else {
-		    reject(false);
+		    var validationFieldLength = parseInt(response.substring(0, separatorIndex));
+		    var separatorIndex = response.indexOf("|");
+		    ReValid(response);
+		    var resultObj = eval(response.substring(separatorIndex + validationFieldLength + 1));
+		    if (resultObj.error) {
+			if (resultObj.error.message == passInfoMap[event]) {	
+			    resultID = resultObj.id;
+			    resolve(true);
+			} else {
+			    reject("Error:" + resultObj.error.message);
+			}
+		    } else if (resultObj.generalError) {
+			// return $.Deferred().reject("General Error:" + resultObj.generalError);
+			reject("General Error:" + resultObj.generalError);
+		    } else {
+			reject(false);
+		    }
 		}
 	    });	
 	});
@@ -295,13 +316,17 @@ function PassAll() {
 	    var Item = NodeList[i];
 	    var id = Item.childNodes[2].innerHTML;
 	    if (Item.childNodes[8].innerHTML.indexOf("未审核") != -1) {
-		yield Pass.bind(Item, id)();
+		try {
+		    yield Pass.bind(Item, id)();
+		} catch (err) {
+		    console.log(id + err);
+		}
 	    }
 	}
     });
 }
-    
-    
+
+
 function GetTooltip(node, id) {
     var parser = new DOMParser();
     var PostData = makePostData(id, "View");
