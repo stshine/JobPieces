@@ -317,7 +317,11 @@ function PassAll() {
 	    var id = Item.childNodes[2].innerHTML;
 	    if (Item.childNodes[8].innerHTML.indexOf("未审核") != -1) {
 		try {
-		    yield Pass.bind(Item, id)();
+		    if (Item.childNodes[1].style.color == "green") {
+			yield Pass.bind(Item, id)();
+		    } else {
+			yield doRefuse.bind(Item, id)();
+		    }
 		} catch (err) {
 		    console.log(id + err);
 		}
@@ -326,7 +330,17 @@ function PassAll() {
     });
 }
 
-
+var specials = "@&()/-（）@&、，-。,.";
+    
+function checkSpecial(name) {
+    for (var i=0; i<specials.length; i++) {
+	if (name.indexOf(specials.charAt(i)) > -1) {
+	    return true;
+	}
+    }
+    return false;
+}
+    
 function GetTooltip(node, id) {
     var parser = new DOMParser();
     var PostData = makePostData(id, "View");
@@ -462,9 +476,11 @@ function doRefuse(id) {
 	}
 	var resultObj = eval(response.substring(separatorIndex + validationFieldLength + 1));
 	if (resultObj.generalError) {
-	    alert("General Error:" + resultObj.generalError);
+	    node.childNodes[8].innerHTML = resultObj.generalError;
+	    //alert("General Error:" + resultObj.generalError);
 	} else if (resultObj.error) {
-	    alert("Error:" + resultObj.error.message);
+	    node.childNodes[8].innerHTML = resultObj.error.message;
+	    //alert("Error:" + resultObj.error.message);
 	} else {
 	    node.childNodes[8].innerHTML = "退回;";
 	    node.childNodes[1].innerHTML = "✔";
@@ -523,7 +539,11 @@ function init() {
 	var status = Item.childNodes[8].innerHTML;
 	if(status.indexOf("未审核") > -1) {
 	    Item.childNodes[1].innerHTML = "🔘";
-	    Item.childNodes[1].style.color = "green";
+	    if (checkSpecial(Item.childNodes[4].innerHTML) || checkSpecial(Item.childNodes[5].innerHTML)) {
+		Item.childNodes[1].style.color = "red";
+	    } else {
+		Item.childNodes[1].style.color = "green";
+	    }
 	} else if (status.indexOf("退回") != -1) {
 	    Item.childNodes[1].innerHTML = "✔";
 	    Item.childNodes[1].style.color = "red";

@@ -11,7 +11,7 @@ import unittest, time, re
 import io, time
 
 jstring = ""
-with io.open('news.js', encoding='utf-8') as f:
+with io.open('TongjiEnhance.user.js', encoding='utf-8') as f:
    jstring = f.read()
 
    
@@ -36,7 +36,7 @@ class Tongji(unittest.TestCase):
         driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_B-1Img").click()
         wait.until(EC.visibility_of_element_located((By.ID, "ASPxPageControl1_ASPxDateEdit1_DDD_PW-1")))
         driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_DDD_C_PMCImg").click()
-        driver.find_element_by_xpath('/html/body/form/table/tbody/tr[2]/td/div[1]/div[1]/table[1]/tbody/tr/td[3]/div/table/tbody/tr[1]/td[1]/table/tbody/tr/td/table[2]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[3]/td[4]').click()
+        driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_DDD_C_PMCImg").click()
         # driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_DDD_C_T").click()
         # wait.until(EC.visibility_of_element_located((By.ID, "ASPxPageControl1_ASPxDateEdit1_DDD_C_FNP_PW-1")))
         # selector = Select(driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_DDD_C_FNP_m"))
@@ -46,16 +46,11 @@ class Tongji(unittest.TestCase):
         # driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_DDD_C_FNP_BO").click()
         # selector = Select(driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_DDD_C_mt"))
         # selector.select_by_visible_text(31)
+        driver.find_element_by_xpath('/html/body/form/table/tbody/tr[2]/td/div[1]/div[1]/table[1]/tbody/tr/td[3]/div/table/tbody/tr[1]/td[1]/table/tbody/tr/td/table[2]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[6]/td[4]').click()
         self.doPass()
         driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_B-1Img").click()
         wait.until(EC.visibility_of_element_located((By.ID, "ASPxPageControl1_ASPxDateEdit1_DDD_PW-1")))
-        driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_DDD_C_PMCImg").click()
-        driver.find_element_by_xpath('/html/body/form/table/tbody/tr[2]/td/div[1]/div[1]/table[1]/tbody/tr/td[3]/div/table/tbody/tr[1]/td[1]/table/tbody/tr/td/table[2]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[3]/td[4]').click()
-        self.doPass()
-        driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_B-1Img").click()
-        wait.until(EC.visibility_of_element_located((By.ID, "ASPxPageControl1_ASPxDateEdit1_DDD_PW-1")))
-        driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_DDD_C_PMCImg").click()
-        driver.find_element_by_xpath('/html/body/form/table/tbody/tr[2]/td/div[1]/div[1]/table[1]/tbody/tr/td[3]/div/table/tbody/tr[1]/td[1]/table/tbody/tr/td/table[2]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[3]/td[6]').click()
+        driver.find_element_by_xpath('/html/body/form/table/tbody/tr[2]/td/div[1]/div[1]/table[1]/tbody/tr/td[3]/div/table/tbody/tr[1]/td[1]/table/tbody/tr/td/table[2]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[6]/td[4]').click()
         self.doPass()
         
     def doPass(self):
