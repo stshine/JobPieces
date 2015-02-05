@@ -330,7 +330,7 @@ function PassAll() {
     });
 }
 
-var specials = "@&()/-（）@&、，-。,.";
+var specials = "@&/-＠＆、，-。,.[]【】－";
     
 function checkSpecial(name) {
     for (var i=0; i<specials.length; i++) {

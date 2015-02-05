@@ -8,13 +8,13 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import NoAlertPresentException
 from selenium.webdriver.support import expected_conditions as EC
 import unittest, time, re
-import io, time
+import io, time, sys
 
 jstring = ""
 with io.open('TongjiEnhance.user.js', encoding='utf-8') as f:
    jstring = f.read()
 
-   
+
 class Tongji(unittest.TestCase):
     def setUp(self):
         self.driver = webdriver.Firefox()
@@ -46,13 +46,10 @@ class Tongji(unittest.TestCase):
         # driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_DDD_C_FNP_BO").click()
         # selector = Select(driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_DDD_C_mt"))
         # selector.select_by_visible_text(31)
-        driver.find_element_by_xpath('/html/body/form/table/tbody/tr[2]/td/div[1]/div[1]/table[1]/tbody/tr/td[3]/div/table/tbody/tr[1]/td[1]/table/tbody/tr/td/table[2]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[6]/td[4]').click()
+        day = '/html/body/form/table/tbody/tr[2]/td/div[1]/div[1]/table[1]/tbody/tr/td[3]/div/table/tbody/tr[1]/td[1]/table/tbody/tr/td/table[2]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[6]/td[{}]'.format(sys.argv[1])
+        driver.find_element_by_xpath(day).click()
         self.doPass()
-        driver.find_element_by_id("ASPxPageControl1_ASPxDateEdit1_B-1Img").click()
-        wait.until(EC.visibility_of_element_located((By.ID, "ASPxPageControl1_ASPxDateEdit1_DDD_PW-1")))
-        driver.find_element_by_xpath('/html/body/form/table/tbody/tr[2]/td/div[1]/div[1]/table[1]/tbody/tr/td[3]/div/table/tbody/tr[1]/td[1]/table/tbody/tr/td/table[2]/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr[6]/td[4]').click()
-        self.doPass()
-        
+
     def doPass(self):
         driver = self.driver
         while driver.find_element_by_css_selector("img[alt=\"Next\"]").find_element_by_xpath('..').get_attribute('onclick'):
@@ -94,4 +91,7 @@ class Tongji(unittest.TestCase):
         self.assertEqual([], self.verificationErrors)
 
 if __name__ == "__main__":
-    unittest.main()
+   if len(sys.argv) < 2:
+      print "Usage: one numerical argument"
+      exit(1)
+   unittest.main(argv=['tongji.py'])
