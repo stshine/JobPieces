@@ -33,7 +33,7 @@ def stringify_children(node):
 
 def stripy(node):
     cleaner(node)
-    return remove_tags(tostring(node, encoding='utf-8').decode('utf-8'), 'div')
+    return remove_tags(tostring(node, encoding='utf-8', method="html", pretty_print=True).decode('utf-8'), 'div')
 
 cleaner = Cleaner(safe_attrs_only=True, safe_attrs="", allow_tags=['p', 'br', 'table', 'tbody', 'tr', 'td'], remove_unknown_tags=False)
 
@@ -55,7 +55,7 @@ def getInfo(url):
                             "zblx": "",
                             "gsgm": "",
                             "ywy": "",
-                            "zyhy": "餐饮美食",
+                            "zyhy": "礼品饰品",
                             "lxr": "",
                             "xb": "",
                             "zw": "",
@@ -72,7 +72,7 @@ def getInfo(url):
                                "id": -1,
                                "khmc": "",
                                "xmmc": "",
-                               "fl": "小吃车",
+                               "fl": "银饰",
                                "ppmc": "",
                                "szqy": "",
                                "jhxm": "",
@@ -120,7 +120,7 @@ def getInfo(url):
     try:
         result = parser.find((lambda tag: tag.has_attr('map-mod-config')))['map-mod-config']
         Location = locreg.search(result).groups(1)[0]
-    except (IndexError, AttributeError) as e:
+    except (IndexError, AttributeError, TypeError) as e:
         print("Get ProjInfo Error:", url, e)
         return None
 
@@ -155,7 +155,9 @@ def getInfo(url):
         StaffNumber = ""
 
     try:
-        CompanyIntro = parser.find(id='company-more').text.strip()
+        CompanyIntro = parser.find(id='company-more')
+        CompanyIntro.a.decompose()
+        CompanyIntro = CompanyIntro.text.strip()
     except (IndexError, AttributeError) as e:
         print("Error for:", url, e)
         return None
@@ -224,9 +226,9 @@ def main():
     thekey.Key = "5pu56YeR6Imz77ya4oCc6ZSA5Yag4oCd55qE5oiQ6ZW/5Y+y"
     client.set_options(soapheaders=thekey)
     with open("1688.json", 'w', encoding='utf-8') as f:
-        for i in range(1, 50):
+        for i in range(1, 23):
             print(i, flush=True)
-            payload = {"beginPage": str(i), "keywords": "小吃车".encode('gbk')}
+            payload = {"beginPage": str(i), "keywords": "银饰".encode('gbk')}
             r = requests.get(baseUrl, params=payload)
             r.encoding = 'gbk'
             tree = fromstring(r.text)
@@ -294,6 +296,8 @@ def main():
                         itemName = parser.find('h1').text
                         imgLink = tree.xpath("/html/body/div[1]/div[2]/div/div[2]/div/div/div/div/div[2]/div[1]/div/div[3]/div/div[1]/div/div/div/div/div[1]/div/a/img")[0].attrib['src']
                         itemInfo = stripy(tree.xpath("/html/body/div[1]/div[2]/div/div[3]/div/div[1]/div/div[1]/div/div[2]/div/div/div/div/div[2]/div/div/div[1]/table")[0])
+                        itemInfo = " ".join(itemInfo.split())
+                        itemInfo = itemInfo.replace('<table>', '<table style="font-size:11px">')
                     except (IndexError, AttributeError) as e:
                         print("Error getting item info:", ItemUrl, e)
                     Item['cpmc'] = itemName
@@ -309,6 +313,7 @@ def main():
                     print("Router Error:", ProjUrl, e)
                 json.dump(result, f, ensure_ascii=False)
                 print("\n", file=f)
+
 
 if __name__ == '__main__':
     main()

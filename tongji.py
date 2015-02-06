@@ -54,6 +54,7 @@ class Tongji(unittest.TestCase):
         driver = self.driver
         while driver.find_element_by_css_selector("img[alt=\"Next\"]").find_element_by_xpath('..').get_attribute('onclick'):
             driver.execute_script(jstring)
+            self.CleanText()
             # time.sleep(0.5)
             driver.find_element_by_css_selector("button[type=\"button\"]").click()
             while True:
@@ -64,7 +65,24 @@ class Tongji(unittest.TestCase):
                     break
             driver.find_element_by_css_selector("img[alt=\"Next\"]").click()
 
-
+    def CleanText(self):
+        driver = self.driver
+        elements = driver.find_elements_by_css_selector("tr[id^='ASPxPageControl1_grid1_DXDataRow'].dxgvDataRow_Aqua")
+        for node in elements:
+            try: node.find_element_by_link_text("1688.com")
+            except NoSuchElementException: continue
+            node.find_element_by_link_text("修改").click()
+            driver.find_element_by_id("ASPxPageControl1_T1T").click()
+            for item in driver.find_element_by_css_selector("tr[id^='ASPxPageControl1_grid1_DXDataRow'].dxgvDataRow_Aqua"):
+                item.find_element_by_link_text("编辑").click()
+                content = driver.find_element_by_class_name("ke-content").text
+                if not "\n" in content:
+                    driver.find_element_by_class_name("ke-content").text = ""
+                    driver.find_element(By.XPATH("//input[@value='更新']")).click()
+                    driver.back()
+                else:
+                    driver.back()
+                    
     def is_element_present(self, how, what):
         try: self.driver.find_element(by=how, value=what)
         except NoSuchElementException, e: return False
